@@ -1,0 +1,40 @@
+name: Sohbet
+
+on:
+  # Cloudflare Worker, Telegram'dan mesaj gelince bunu tetikler.
+  repository_dispatch:
+    types: [telegram-message]
+  # Elle deneme: Actions -> Sohbet -> Run workflow, mesajı kutuya yaz.
+  workflow_dispatch:
+    inputs:
+      text:
+        description: "Ajana gönderilecek mesaj"
+        required: true
+
+# Mesajlar sırayla işlensin; iki mesaj aynı anda dosyayı değiştirmesin.
+concurrency:
+  group: chat
+  cancel-in-progress: false
+
+jobs:
+  chat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m agent.chat
+        env:
+          # Mesaj metni kabuk komutuna değil ortam değişkenine verilir (enjeksiyon riski yok).
+          MESSAGE_TEXT: ${{ github.event.client_payload.text || inputs.text }}
+          MESSAGE_CHAT_ID: ${{ github.event.client_payload.chat_id || secrets.TELEGRAM_CHAT_ID }}
+          REPLY_TO_TEXT: ${{ github.event.client_payload.reply_to }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}

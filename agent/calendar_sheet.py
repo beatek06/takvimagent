@@ -44,9 +44,8 @@ def find_month_blocks(grid):
     return blocks
 
 
-def read_days(grid):
-    """Tüm ay bloklarından {tarih: not} döndürür. Not yoksa None."""
-    days = {}
+def iter_days(grid):
+    """Her gün için (tarih, not, not_satırı, not_sütunu) verir; konumlar 0 tabanlıdır."""
     for r, c, first in find_month_blocks(grid):
         for w in range(MAX_WEEKS):
             date_row = r + 2 + 2 * w
@@ -62,8 +61,21 @@ def read_days(grid):
                         f"(satır {date_row + 1}, sütun {c + i + 1})"
                     )
                 note = _cell(grid, date_row + 1, c + i)
-                days[d] = None if note is None else str(note)
-    return days
+                yield d, (None if note is None else str(note)), date_row + 1, c + i
+
+
+def read_days(grid):
+    """Tüm ay bloklarından {tarih: not} döndürür. Not yoksa None."""
+    return {d: note for d, note, _, _ in iter_days(grid)}
+
+
+def col_letter(c):
+    """0 tabanlı sütun numarasını A1 harfine çevirir (0 -> A, 26 -> AA)."""
+    s, c = "", c + 1
+    while c:
+        c, rem = divmod(c - 1, 26)
+        s = chr(65 + rem) + s
+    return s
 
 
 def _daterange(start, end):

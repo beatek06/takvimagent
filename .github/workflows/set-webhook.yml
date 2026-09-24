@@ -1,0 +1,22 @@
+name: Telegram webhook kur
+
+on:
+  workflow_dispatch:
+    inputs:
+      worker_url:
+        description: "Cloudflare Worker adresi (https://....workers.dev)"
+        required: true
+
+jobs:
+  set-webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m agent.set_webhook "$WORKER_URL"
+        env:
+          WORKER_URL: ${{ inputs.worker_url }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
