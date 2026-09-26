@@ -1,12 +1,22 @@
 name: Akşam özeti
 
 on:
+  # Asıl tetikleyici: Cloudflare Worker cron'u (worker/relay.js), dakikası dakikasına çalışır.
+  repository_dispatch:
+    types: [evening-summary]
+  # Yedek: GitHub'ın kendi cron'u saatlerce gecikebilir, bu yüzden sadece güvenlik ağı.
+  # Dakika :17, yoğun olan tam saat başlarından kaçınmak için. Kod Zürih 19:00-23:59 dışını
+  # ve o gün zaten gönderilmiş özeti atlar.
   schedule:
-    # Zürih 19:00 = kışın 18:00 UTC, yazın 17:00 UTC. İkisi de tetiklenir,
-    # kod Zürih saatine bakıp yanlış olanı atlar.
-    - cron: "0 17 * * *"
-    - cron: "0 18 * * *"
+    - cron: "17 17 * * *"
+    - cron: "17 18 * * *"
+    - cron: "17 19 * * *"
   workflow_dispatch:
+
+# İki tetikleyici aynı anda gelirse sırayla çalışsın, ikisi birden mesaj atmasın.
+concurrency:
+  group: evening
+  cancel-in-progress: false
 
 jobs:
   evening:

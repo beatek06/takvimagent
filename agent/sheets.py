@@ -30,17 +30,23 @@ def _rng(tab, cells):
     return quote(f"'{tab}'!{cells}", safe="")
 
 
+_tabs = None  # bir çalışma boyunca aynı liste tekrar tekrar istenmesin
+
+
 def list_tabs():
     """Dosyadaki sekmelerin adı ve boyutu."""
-    data = _request("GET", "?fields=sheets.properties(title,gridProperties)")
-    return [
-        {
-            "title": s["properties"]["title"],
-            "rows": s["properties"]["gridProperties"]["rowCount"],
-            "columns": s["properties"]["gridProperties"]["columnCount"],
-        }
-        for s in data["sheets"]
-    ]
+    global _tabs
+    if _tabs is None:
+        data = _request("GET", "?fields=sheets.properties(title,gridProperties)")
+        _tabs = [
+            {
+                "title": s["properties"]["title"],
+                "rows": s["properties"]["gridProperties"]["rowCount"],
+                "columns": s["properties"]["gridProperties"]["columnCount"],
+            }
+            for s in data["sheets"]
+        ]
+    return _tabs
 
 
 def get_values(tab="TAKVIM", cells="A1:Z400", render="UNFORMATTED_VALUE"):
@@ -76,9 +82,11 @@ def update_cells(tab, updates, input_option="RAW"):
 
 
 def ensure_tab(tab):
+    global _tabs
     if any(t["title"] == tab for t in list_tabs()):
         return
     _request("POST", ":batchUpdate", json={"requests": [{"addSheet": {"properties": {"title": tab}}}]})
+    _tabs = None
 
 
 def append_rows(tab, rows):
