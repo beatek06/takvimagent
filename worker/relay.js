@@ -2,10 +2,11 @@
 // (2) cron ile her akşam "Akşam özeti" workflow'unu tetikler.
 //
 // Ayarlar (Worker -> Settings -> Variables and Secrets):
-//   WEBHOOK_SECRET    (secret)  Telegram'a verilen secret_token ile aynı değer
-//   GITHUB_TOKEN      (secret)  Sadece bu repoya, "Contents: Read and write" yetkili fine-grained token
-//   ALLOWED_CHAT_ID   (text)    Sadece bu sohbetten gelen mesajlar işlenir
-//   GITHUB_REPO       (text)    beatek06/takvimagent
+//   WEBHOOK_SECRET      (secret)  Telegram'a verilen secret_token ile aynı değer
+//   GITHUB_TOKEN        (secret)  Sadece bu repoya, "Contents: Read and write" yetkili fine-grained token
+//   TELEGRAM_BOT_TOKEN  (secret)  BotFather token'ı (sadece "yazıyor..." göstergesi için kullanılır)
+//   ALLOWED_CHAT_ID     (text)    Sadece bu sohbetten gelen mesajlar işlenir
+//   GITHUB_REPO         (text)    beatek06/takvimagent
 //
 // Cron (Worker -> Settings -> Triggers -> Cron Triggers, saatler UTC):
 //   0 17 * * *   ve   0 18 * * *
@@ -28,8 +29,21 @@ async function dispatch(env, eventType, payload) {
   return res.ok;
 }
 
+async function sendTyping(env, chatId) {
+  if (!env.TELEGRAM_BOT_TOKEN) return; // ayarlanmadıysa sessizce atla, tetikleme yine çalışır
+  try {
+    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+    });
+  } catch (e) {
+    console.log("typing göstergesi hatası", e);
+  }
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method !== "POST") return new Response("ok");
 
     // Telegram'ın webhook'u kurarken belirlediğimiz gizli başlığı gönderdiğini doğrula.
@@ -43,6 +57,10 @@ export default {
     if (!msg || !msg.text || String(msg.chat.id) !== String(env.ALLOWED_CHAT_ID)) {
       return new Response("ok");
     }
+
+    // GitHub'daki makine ayağa kalkana kadar (15-20 sn) kullanıcı bir şey görmüyordu;
+    // bunu hemen gösterip bekleme hissini azaltıyoruz. Gerçek cevap hâlâ 30-90 sn sürebilir.
+    ctx.waitUntil(sendTyping(env, msg.chat.id));
 
     await dispatch(env, "telegram-message", {
       text: msg.text,
